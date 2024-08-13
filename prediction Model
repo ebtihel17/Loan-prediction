@@ -1,0 +1,77 @@
+import pandas as pd
+import numpy as np
+import os
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+def main():
+    # Loading the CSV files
+    train = pd.read_csv(r"C:\Users\Client\Desktop\train.csv")
+
+    test = pd.read_csv(r'C:\Users\Client\Desktop\test.csv')
+
+    data = pd.concat([train, test], ignore_index=True)
+
+    # Handling missing values and outliers
+    data['Gender'].fillna(data['Gender'].mode()[0], inplace=True)
+    data['Married'].fillna('No', inplace=True)
+    data['Dependents'].fillna('0', inplace=True)
+    data['Self_Employed'].fillna('Yes', inplace=True)
+    data['LoanAmount'].fillna(data['LoanAmount'].median(), inplace=True)
+    data['Loan_Amount_Term'].fillna(data['Loan_Amount_Term'].median(), inplace=True)
+    data['Credit_History'].fillna(data['Credit_History'].median(), inplace=True)
+
+    data.drop('Loan_ID', axis=1, inplace=True)
+
+    #Converting Categorical Variables to Numeric Values using Label Encoding'''
+
+    from sklearn.preprocessing import LabelEncoder
+
+    label_encoder = LabelEncoder()
+
+    categorical_columns = ['Gender', 'Married', 'Dependents', 'Education', 'Self_Employed', 'Property_Area',
+                           'Loan_Status']
+
+    for column in categorical_columns:
+        data[column] = label_encoder.fit_transform(data[
+                                                       column])  # iterates over the specified categorical columns (categorical_columns) and  applies label encoding to each column, replacing categorical values with numeric labels
+
+    for column in categorical_columns:
+        print(f'{column}: {data[column].unique()}')
+
+    # Splitting data into training and testing sets
+    X = data.drop('Loan_Status', axis=1)   # removing target variable
+    y = data['Loan_Status']                # defining target var
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Perform GridSearchCV for Random Forest
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+        'max_features': ['auto', 'sqrt', 'log2'],
+        'criterion': ['gini', 'entropy']
+    }
+
+    grid_search = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_grid=param_grid, cv=5, n_jobs=-1, verbose=1)
+    grid_search.fit(X_train, y_train)
+
+    # Best model from grid search
+    best_rf = grid_search.best_estimator_
+    y_pred = best_rf.predict(X_test)
+
+    # Print results
+    print("Best Random Forest Model:")
+    print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
+    print(classification_report(y_test, y_pred))
+    print(confusion_matrix(y_test, y_pred))
+
+# Save the model
+
+    import joblib
+    joblib.dump(best_rf, 'loan_random_forest_model.pkl')
+
+if __name__ == "__main__":
+    main()
